@@ -72,6 +72,21 @@ function UnitSnapshot({ units }) {
   );
 }
 
+function StatusBoard({ stats }) {
+  return (
+    <div className="panel right-summary">
+      <div className="panel-top"><h2>Status Board</h2></div>
+      <div className="status-board">
+        <div className="board-stat"><span>Active Calls</span><b>{stats.activeCalls}</b></div>
+        <div className="board-stat"><span>Pending</span><b>{stats.pendingCalls}</b></div>
+        <div className="board-stat"><span>Online Units</span><b>{stats.onlineUnits}</b></div>
+        <div className="board-stat"><span>Available</span><b className="c-green">{stats.availableUnits}</b></div>
+        <div className="board-stat"><span>Busy</span><b className="c-amber">{stats.busyUnits}</b></div>
+      </div>
+    </div>
+  );
+}
+
 export default function RightSidebar({
   view,
   state,
@@ -81,6 +96,8 @@ export default function RightSidebar({
   onSelectCall,
   onSelectStop,
 }) {
+  const showCompactUnits = view === 'dispatch' || view === 'traffic';
+
   return (
     <>
       {view === 'traffic' && (
@@ -89,16 +106,28 @@ export default function RightSidebar({
       {view === 'calls' && (
         <ActiveCallsSummary calls={state.calls} onSelectCall={onSelectCall} />
       )}
-      {(view === 'units' || view === 'activity') && (
-        <UnitSnapshot units={state.units} />
+      {view === 'units' && (
+        <>
+          <StatusBoard stats={state.stats} />
+          <ActiveCallsSummary calls={state.calls} onSelectCall={onSelectCall} />
+          <TrafficSummary stops={state.trafficStops} onSelectStop={onSelectStop} />
+        </>
       )}
-      <UnitsPanel
-        units={state.units}
-        compact
-        onEdit={onEditUnit}
-        onStatusChange={onStatusChange}
-        onTrafficStop={onTrafficStop}
-      />
+      {view === 'activity' && (
+        <>
+          <UnitSnapshot units={state.units} />
+          <ActiveCallsSummary calls={state.calls} onSelectCall={onSelectCall} />
+        </>
+      )}
+      {showCompactUnits && (
+        <UnitsPanel
+          units={state.units}
+          compact
+          onEdit={onEditUnit}
+          onStatusChange={onStatusChange}
+          onTrafficStop={onTrafficStop}
+        />
+      )}
       <ActivityPanel entries={state.activity} />
     </>
   );

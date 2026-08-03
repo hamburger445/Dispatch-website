@@ -78,10 +78,12 @@ export default function UnitsPanel({ units, onEdit, onStatusChange, onTrafficSto
                 <td>{u.officer_name}</td>
                 <td><span className="dept-tag" style={{ background: DEPARTMENTS[u.department]?.color }}>{u.department}</span></td>
                 <td className="truncate">{u.vehicle || '—'}</td>
-                <td>
+                <td className="status-cell">
                   <Select
                     variant="status"
+                    className="table-status-select"
                     size="sm"
+                    portal
                     value={u.status}
                     onChange={(v) => handleStatusSelect(u, v)}
                     options={statusOptions(u)}

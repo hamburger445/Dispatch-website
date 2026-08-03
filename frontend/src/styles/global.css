@@ -179,18 +179,36 @@ body {
 /* Custom Select */
 .cad-select { position: relative; width: 100%; }
 .cad-select.sm { max-width: 220px; }
+.cad-select.table-status-select { width: auto; min-width: 88px; max-width: 132px; display: inline-block; }
 .cad-select.filter-select { max-width: 120px; min-width: 100px; }
 .cad-select.traffic-unit-select { min-width: 220px; flex: 1; }
 .cad-select-trigger {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
   width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px;
   background: var(--input-bg); color: var(--text); font-size: 12px; font-weight: 600;
-  cursor: pointer; font-family: inherit; text-align: left;
+  cursor: pointer; font-family: inherit; text-align: left; outline: none;
 }
-.cad-select.sm .cad-select-trigger { padding: 5px 8px; font-size: 11px; }
-.cad-select.status .cad-select-trigger { border-color: var(--c, var(--border)); }
+.cad-select.sm .cad-select-trigger { padding: 4px 8px; font-size: 11px; min-height: 28px; }
+.cad-select.status .cad-select-trigger {
+  border-color: color-mix(in srgb, var(--c, var(--border)) 55%, var(--border));
+  background: color-mix(in srgb, var(--c, var(--border)) 8%, var(--input-bg));
+}
+.cad-select.status.table-status-select .cad-select-trigger {
+  border-color: color-mix(in srgb, var(--c, var(--border)) 70%, var(--border));
+  box-shadow: none;
+}
 .cad-select-trigger:hover { border-color: var(--accent); }
-.cad-select.open .cad-select-trigger { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.cad-select.status.table-status-select .cad-select-trigger:hover {
+  border-color: color-mix(in srgb, var(--c, var(--accent)) 60%, var(--accent));
+}
+.cad-select.open .cad-select-trigger { border-color: var(--accent); }
+.cad-select.status.table-status-select.open .cad-select-trigger {
+  border-color: var(--c, var(--accent));
+  box-shadow: none;
+}
+.cad-select:not(.status).open .cad-select-trigger {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+}
 .cad-select.disabled .cad-select-trigger { opacity: 0.6; cursor: not-allowed; }
 .cad-select-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cad-select-chevron { color: var(--muted); font-size: 10px; flex-shrink: 0; }
@@ -200,6 +218,8 @@ body {
   background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0,0,0,.35);
 }
+.cad-select-menu-portal { right: auto; min-width: 120px; }
+.cad-table .status-cell { overflow: visible; white-space: nowrap; width: 1%; }
 .cad-select-menu button {
   display: block; width: 100%; padding: 8px 10px; border: none; border-left: 3px solid transparent;
   border-radius: 6px; background: none; color: var(--text); font-size: 12px;
@@ -229,6 +249,13 @@ body {
   padding: 8px 10px; background: var(--surface2); border-radius: 6px; border: 1px solid var(--border);
 }
 .snapshot-cell b { font-family: Consolas, monospace; font-size: 16px; }
+.status-board { padding: 8px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+.board-stat {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 8px; background: var(--surface2); border-radius: 6px; font-size: 12px;
+  color: var(--text-secondary);
+}
+.board-stat b { font-family: Consolas, monospace; color: var(--text); font-size: 14px; }
 
 .search-input, .input, select.input {
   padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px;
