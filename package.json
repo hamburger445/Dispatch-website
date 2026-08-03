@@ -1,0 +1,23 @@
+{
+  "name": "greenville-cad",
+  "version": "1.0.0",
+  "description": "Greenville Computer Aided Dispatch Console",
+  "private": true,
+  "scripts": {
+    "postinstall": "cd frontend && npm install",
+    "install:all": "npm install && cd frontend && npm install",
+    "build": "cd frontend && npm run build",
+    "start": "node backend/server.js",
+    "dev": "node backend/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1",
+    "sql.js": "^1.12.0",
+    "uuid": "^11.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "WIS 15", "type": "highway" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[-88.705, 44.295], [-88.698, 44.298], [-88.689, 44.301], [-88.680, 44.304], [-88.670, 44.307]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "WIS 96", "type": "highway" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[-88.710, 44.310], [-88.700, 44.305], [-88.689, 44.300], [-88.678, 44.295], [-88.665, 44.290]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "County Trunk HH", "type": "county" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[-88.695, 44.308], [-88.692, 44.303], [-88.689, 44.298], [-88.686, 44.293]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Broadway St", "type": "local" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[-88.693, 44.302], [-88.689, 44.302], [-88.685, 44.302]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Linden St", "type": "local" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[-88.689, 44.305], [-88.689, 44.300], [-88.689, 44.295]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "School St", "type": "local" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[-88.691, 44.299], [-88.687, 44.299]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Fire Station", "type": "landmark" },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-88.6905, 44.2995]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Greenville Town Hall", "type": "landmark" },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-88.6893, 44.3003]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Greenville Elementary", "type": "landmark" },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-88.6880, 44.3010]
+      }
+    }
+  ]
+}
