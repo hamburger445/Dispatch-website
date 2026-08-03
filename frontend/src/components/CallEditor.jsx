@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { CALL_TYPES, CALL_STATUSES, PRIORITY_LABELS, DEPARTMENTS, formatDateTime, timeSince } from '../constants';
+import { CALL_TYPES, CALL_STATUSES, PRIORITY_LABELS, formatDateTime, timeSince } from '../constants';
+import Select from './Select';
 
 export default function CallEditor({ call, units, onSave, onDelete, onClose, onCancel, onAssign, onUnassign }) {
   const [form, setForm] = useState(null);
@@ -42,19 +43,25 @@ export default function CallEditor({ call, units, onSave, onDelete, onClose, onC
           <div className="field-row">
             <label>Incident #<input readOnly value={f.incident_number} className="input" /></label>
             <label>Call Type
-              <select className="input" value={f.call_type} onChange={e => set('call_type', e.target.value)}>
-                {CALL_TYPES.map(t => <option key={t}>{t}</option>)}
-              </select>
+              <Select
+                value={f.call_type}
+                onChange={(v) => set('call_type', v)}
+                options={CALL_TYPES.map(t => ({ value: t, label: t }))}
+              />
             </label>
             <label>Priority
-              <select className="input" value={f.priority} onChange={e => set('priority', +e.target.value)}>
-                {[1,2,3,4,5].map(p => <option key={p} value={p}>{PRIORITY_LABELS[p].label}</option>)}
-              </select>
+              <Select
+                value={f.priority}
+                onChange={(v) => set('priority', +v)}
+                options={[1, 2, 3, 4, 5].map(p => ({ value: p, label: PRIORITY_LABELS[p].label }))}
+              />
             </label>
             <label>Status
-              <select className="input" value={f.status} onChange={e => set('status', e.target.value)}>
-                {CALL_STATUSES.map(s => <option key={s}>{s}</option>)}
-              </select>
+              <Select
+                value={f.status}
+                onChange={(v) => set('status', v)}
+                options={CALL_STATUSES.map(s => ({ value: s, label: s }))}
+              />
             </label>
           </div>
         </section>
@@ -81,10 +88,15 @@ export default function CallEditor({ call, units, onSave, onDelete, onClose, onC
         <section className="editor-section">
           <h3>Assigned Units</h3>
           <div className="assign-row">
-            <select className="input" value={assignId} onChange={e => setAssignId(e.target.value)}>
-              <option value="">Add unit...</option>
-              {available.map(u => <option key={u.id} value={u.id}>{u.callsign} — {u.officer_name} ({u.department})</option>)}
-            </select>
+            <Select
+              value={assignId}
+              onChange={setAssignId}
+              placeholder="Add unit..."
+              options={available.map(u => ({
+                value: u.id,
+                label: `${u.callsign} — ${u.officer_name} (${u.department})`,
+              }))}
+            />
             <button className="btn secondary" disabled={!assignId} onClick={() => { onAssign(call.id, assignId); setAssignId(''); }}>Assign</button>
           </div>
           <table className="cad-table compact">

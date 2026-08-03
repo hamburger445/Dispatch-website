@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { DEPARTMENTS, UNIT_STATUSES, CUSTOM_STATUS_OPTION, isPresetStatus } from '../constants';
+import Select from './Select';
 
 export default function UnitModal({ unit, onClose, onSave, onDelete }) {
   const initialCustom = unit?.status && !isPresetStatus(unit.status);
@@ -21,6 +22,16 @@ export default function UnitModal({ unit, onClose, onSave, onDelete }) {
     onSave({ ...form, status: status || '10-8' });
   };
 
+  const deptOptions = Object.entries(DEPARTMENTS).map(([k, v]) => ({
+    value: k,
+    label: `${k} — ${v.name}`,
+  }));
+
+  const statusOptions = [
+    ...UNIT_STATUSES.map(s => ({ value: s, label: s })),
+    { value: CUSTOM_STATUS_OPTION, label: 'Custom...' },
+  ];
+
   return (
     <div className="modal-bg" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
@@ -29,28 +40,23 @@ export default function UnitModal({ unit, onClose, onSave, onDelete }) {
           <label>Callsign<input className="input" value={form.callsign} onChange={e => set('callsign', e.target.value)} /></label>
           <label>Officer Name<input className="input" value={form.officer_name} onChange={e => set('officer_name', e.target.value)} /></label>
           <label>Department
-            <select className="input" value={form.department} onChange={e => set('department', e.target.value)}>
-              {Object.entries(DEPARTMENTS).map(([k, v]) => <option key={k} value={k}>{k} — {v.name}</option>)}
-            </select>
+            <Select value={form.department} onChange={(v) => set('department', v)} options={deptOptions} />
           </label>
           <label>Vehicle<input className="input" value={form.vehicle} onChange={e => set('vehicle', e.target.value)} /></label>
           <label>Status
-            <select
-              className="input"
+            <Select
               value={useCustomStatus ? CUSTOM_STATUS_OPTION : form.status}
-              onChange={e => {
-                if (e.target.value === CUSTOM_STATUS_OPTION) {
+              onChange={(v) => {
+                if (v === CUSTOM_STATUS_OPTION) {
                   setUseCustomStatus(true);
                   setCustomStatus('');
                 } else {
                   setUseCustomStatus(false);
-                  set('status', e.target.value);
+                  set('status', v);
                 }
               }}
-            >
-              {UNIT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-              <option value={CUSTOM_STATUS_OPTION}>Custom...</option>
-            </select>
+              options={statusOptions}
+            />
           </label>
           {useCustomStatus && (
             <label className="full">Custom status

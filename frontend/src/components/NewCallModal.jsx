@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CALL_TYPES } from '../constants';
+import Select from './Select';
 
 export default function NewCallModal({ units, onClose, onSave }) {
   const [form, setForm] = useState({
@@ -38,14 +39,18 @@ export default function NewCallModal({ units, onClose, onSave }) {
         {error && <div className="form-error">{error}</div>}
         <div className="form-grid">
           <label>Call Type
-            <select className="input" value={form.call_type} onChange={e => set('call_type', e.target.value)}>
-              {CALL_TYPES.map(t => <option key={t}>{t}</option>)}
-            </select>
+            <Select
+              value={form.call_type}
+              onChange={(v) => set('call_type', v)}
+              options={CALL_TYPES.map(t => ({ value: t, label: t }))}
+            />
           </label>
           <label>Priority
-            <select className="input" value={form.priority} onChange={e => set('priority', +e.target.value)}>
-              {[1, 2, 3, 4, 5].map(p => <option key={p} value={p}>P{p}</option>)}
-            </select>
+            <Select
+              value={form.priority}
+              onChange={(v) => set('priority', +v)}
+              options={[1, 2, 3, 4, 5].map(p => ({ value: p, label: `P${p}` }))}
+            />
           </label>
           <label className="wide">Address<input className="input" value={form.address} onChange={e => set('address', e.target.value)} /></label>
           <label>Cross Street<input className="input" value={form.cross_street} onChange={e => set('cross_street', e.target.value)} /></label>
@@ -56,12 +61,15 @@ export default function NewCallModal({ units, onClose, onSave }) {
         <section className="assign-section">
           <h3>Assign Units * <span className="hint-inline">Units are marked 10-97 on scene</span></h3>
           <div className="assign-row">
-            <select className="input" value={pickId} onChange={e => setPickId(e.target.value)}>
-              <option value="">Select unit to add...</option>
-              {available.map(u => (
-                <option key={u.id} value={u.id}>{u.callsign} — {u.officer_name} ({u.department})</option>
-              ))}
-            </select>
+            <Select
+              value={pickId}
+              onChange={setPickId}
+              placeholder="Select unit to add..."
+              options={available.map(u => ({
+                value: u.id,
+                label: `${u.callsign} — ${u.officer_name} (${u.department})`,
+              }))}
+            />
             <button type="button" className="btn secondary" disabled={!pickId} onClick={addUnit}>Add Unit</button>
           </div>
           <div className="unit-chips">

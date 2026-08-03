@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { formatDateTime } from '../constants';
+import Select from './Select';
 
 export default function TrafficStopDetailModal({ stop, units, onClose, onAddUnit }) {
   const [pickId, setPickId] = useState('');
@@ -49,12 +50,16 @@ export default function TrafficStopDetailModal({ stop, units, onClose, onAddUnit
         <section className="assign-section">
           <h3>Add Unit <span className="hint-inline">Unit is marked Traffic Stop</span></h3>
           <div className="assign-row">
-            <select className="input" value={pickId} onChange={e => setPickId(e.target.value)} disabled={saving}>
-              <option value="">Select unit to add...</option>
-              {available.map(u => (
-                <option key={u.id} value={u.id}>{u.callsign} — {u.officer_name} ({u.department})</option>
-              ))}
-            </select>
+            <Select
+              value={pickId}
+              onChange={setPickId}
+              disabled={saving}
+              placeholder="Select unit to add..."
+              options={available.map(u => ({
+                value: u.id,
+                label: `${u.callsign} — ${u.officer_name} (${u.department})`,
+              }))}
+            />
             <button type="button" className="btn secondary" disabled={!pickId || saving} onClick={addUnit}>
               {saving ? 'Adding...' : 'Add Unit'}
             </button>

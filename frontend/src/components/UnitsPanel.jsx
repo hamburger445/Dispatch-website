@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { DEPARTMENTS, UNIT_STATUSES, CUSTOM_STATUS_OPTION, getStatusColor, isPresetStatus, timeSince } from '../constants';
 import CustomStatusModal from './CustomStatusModal';
+import Select from './Select';
 
 export default function UnitsPanel({ units, onEdit, onStatusChange, onTrafficStop, compact }) {
   const [search, setSearch] = useState('');
@@ -9,8 +10,11 @@ export default function UnitsPanel({ units, onEdit, onStatusChange, onTrafficSto
   const [customUnit, setCustomUnit] = useState(null);
 
   const statusOptions = (unit) => {
-    const opts = [...UNIT_STATUSES];
-    if (unit.status && !isPresetStatus(unit.status)) opts.push(unit.status);
+    const opts = UNIT_STATUSES.map(s => ({ value: s, label: s, color: getStatusColor(s) }));
+    if (unit.status && !isPresetStatus(unit.status)) {
+      opts.push({ value: unit.status, label: unit.status, color: getStatusColor(unit.status) });
+    }
+    opts.push({ value: CUSTOM_STATUS_OPTION, label: 'Custom...' });
     return opts;
   };
 
@@ -37,6 +41,11 @@ export default function UnitsPanel({ units, onEdit, onStatusChange, onTrafficSto
     return sort.dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
   });
 
+  const deptOptions = [
+    { value: '', label: 'All Depts' },
+    ...Object.keys(DEPARTMENTS).map(d => ({ value: d, label: d })),
+  ];
+
   return (
     <div className={`panel units-panel${compact ? ' compact' : ''}`}>
       <div className="panel-top">
@@ -44,10 +53,7 @@ export default function UnitsPanel({ units, onEdit, onStatusChange, onTrafficSto
         {!compact && (
           <div className="filters">
             <input className="search-input" placeholder="Search units..." value={search} onChange={e => setSearch(e.target.value)} />
-            <select className="input sm" value={dept} onChange={e => setDept(e.target.value)}>
-              <option value="">All Depts</option>
-              {Object.keys(DEPARTMENTS).map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
+            <Select className="filter-select" size="sm" value={dept} onChange={setDept} options={deptOptions} />
           </div>
         )}
       </div>
@@ -73,15 +79,14 @@ export default function UnitsPanel({ units, onEdit, onStatusChange, onTrafficSto
                 <td><span className="dept-tag" style={{ background: DEPARTMENTS[u.department]?.color }}>{u.department}</span></td>
                 <td className="truncate">{u.vehicle || '—'}</td>
                 <td>
-                  <select
-                    className="status-sel"
-                    style={{ '--c': getStatusColor(u.status) }}
+                  <Select
+                    variant="status"
+                    size="sm"
                     value={u.status}
-                    onChange={e => handleStatusSelect(u, e.target.value)}
-                  >
-                    {statusOptions(u).map(s => <option key={s} value={s}>{s}</option>)}
-                    <option value={CUSTOM_STATUS_OPTION}>Custom...</option>
-                  </select>
+                    onChange={(v) => handleStatusSelect(u, v)}
+                    options={statusOptions(u)}
+                    style={{ '--c': getStatusColor(u.status) }}
+                  />
                 </td>
                 <td className="mono">{u.current_call || '—'}</td>
                 <td className="muted">{timeSince(u.status_changed_at)}</td>

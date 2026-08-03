@@ -6,7 +6,7 @@ import Sidebar from './components/Sidebar';
 import CallsPanel from './components/CallsPanel';
 import CallEditor from './components/CallEditor';
 import UnitsPanel from './components/UnitsPanel';
-import ActivityPanel from './components/ActivityPanel';
+import RightSidebar from './components/RightSidebar';
 import TrafficStopsPanel from './components/TrafficStopsPanel';
 import UnitModal from './components/UnitModal';
 import NewCallModal from './components/NewCallModal';
@@ -150,18 +150,15 @@ export default function App() {
         </main>
 
         <aside className="cad-right">
-          {view === 'dispatch' && (
-            <>
-              <UnitsPanel
-                units={state.units}
-                compact
-                onEdit={(u) => setUnitModal({ unit: u })}
-                onStatusChange={(id, status) => api('PATCH', `/units/${id}/status`, { status })}
-                onTrafficStop={(u) => setTrafficModal(u)}
-              />
-              <ActivityPanel entries={state.activity} />
-            </>
-          )}
+          <RightSidebar
+            view={view}
+            state={state}
+            onEditUnit={(u) => setUnitModal({ unit: u })}
+            onStatusChange={(id, status) => api('PATCH', `/units/${id}/status`, { status })}
+            onTrafficStop={(u) => setTrafficModal(u)}
+            onSelectCall={(id) => { setSelectedCallId(id); setView('dispatch'); }}
+            onSelectStop={(s) => { setTrafficStopDetail(s); setView('traffic'); }}
+          />
         </aside>
       </div>
 

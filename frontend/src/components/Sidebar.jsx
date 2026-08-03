@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 
 const NAV = [
-  { id: 'dispatch', label: 'Dispatch', icon: '📡' },
-  { id: 'calls', label: 'All Calls', icon: '📞' },
-  { id: 'units', label: 'Units', icon: '🚔' },
-  { id: 'traffic', label: 'Traffic Stops', icon: '🛑' },
-  { id: 'activity', label: 'Activity Log', icon: '📋' },
+  { id: 'dispatch', label: 'Dispatch' },
+  { id: 'calls', label: 'All Calls' },
+  { id: 'units', label: 'Units' },
+  { id: 'traffic', label: 'Traffic Stops' },
+  { id: 'activity', label: 'Activity Log' },
 ];
 
 export default function Sidebar({ view, setView, stats, onReports }) {
@@ -33,10 +33,10 @@ export default function Sidebar({ view, setView, stats, onReports }) {
       <nav className="cad-nav">
         {NAV.map(n => (
           <button key={n.id} className={view === n.id ? 'active' : ''} onClick={() => setView(n.id)}>
-            <span>{n.icon}</span> {n.label}
+            {n.label}
           </button>
         ))}
-        <button onClick={onReports}><span>📊</span> Reports</button>
+        <button onClick={onReports}>Reports</button>
       </nav>
 
       <div className="cad-sidebar-stats">

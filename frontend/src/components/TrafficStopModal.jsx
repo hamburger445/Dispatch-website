@@ -16,7 +16,7 @@ export default function TrafficStopModal({ unit, onClose, onSave }) {
     try {
       await onSave({ unit_id: unit.id, ...form, location: form.location.trim() });
     } catch (e) {
-      setError(e.message || 'Failed to start traffic stop. Restart Start.bat if the server was not restarted after an update.');
+      setError(e.message || 'Failed to start traffic stop.');
     } finally {
       setSaving(false);
     }

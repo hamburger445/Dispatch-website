@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { formatDateTime } from '../constants';
+import Select from './Select';
 
 export default function TrafficStopsPanel({ stops = [], units = [], onStart, onClear, onSelectStop }) {
   const [unitId, setUnitId] = useState('');
@@ -16,12 +17,17 @@ export default function TrafficStopsPanel({ stops = [], units = [], onStart, onC
       <div className="panel-top">
         <h2>Traffic Stops</h2>
         <div className="traffic-start-row">
-          <select className="input sm" value={unitId} onChange={e => setUnitId(e.target.value)}>
-            <option value="">Select unit...</option>
-            {units.map(u => (
-              <option key={u.id} value={u.id}>{u.callsign} — {u.officer_name} ({u.department})</option>
-            ))}
-          </select>
+          <Select
+            className="traffic-unit-select"
+            size="sm"
+            value={unitId}
+            onChange={setUnitId}
+            placeholder="Select unit..."
+            options={units.map(u => ({
+              value: u.id,
+              label: `${u.callsign} — ${u.officer_name} (${u.department})`,
+            }))}
+          />
           <button
             className="btn primary"
             disabled={!unitId}

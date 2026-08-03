@@ -276,7 +276,7 @@ router.post('/traffic-stops', (req, res) => {
     res.json(state);
   } catch (err) {
     console.error('Traffic stop error:', err);
-    res.status(500).json({ error: err.message || 'Failed to create traffic stop. Restart Start.bat to apply updates.' });
+    res.status(500).json({ error: err.message || 'Failed to create traffic stop' });
   }
 });
 
