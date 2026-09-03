@@ -1,6 +1,6 @@
 import { DEPARTMENTS, getStatusColor, timeSince } from '../constants';
 import UnitsPanel from './UnitsPanel';
-import ActivityPanel from './ActivityPanel';
+
 
 function ActiveCallsSummary({ calls, onSelectCall }) {
   const active = calls.filter(c => !['Closed', 'Cancelled'].includes(c.status)).slice(0, 8);
@@ -118,8 +118,7 @@ export default function RightSidebar({
           <UnitSnapshot units={state.units} />
           <ActiveCallsSummary calls={state.calls} onSelectCall={onSelectCall} />
         </>
-      )}
-      {showCompactUnits && (
+      )}      {showCompactUnits && (
         <UnitsPanel
           units={state.units}
           compact
@@ -128,7 +127,6 @@ export default function RightSidebar({
           onTrafficStop={onTrafficStop}
         />
       )}
-      <ActivityPanel entries={state.activity} />
     </>
   );
 }
