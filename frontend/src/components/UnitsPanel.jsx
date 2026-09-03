@@ -64,7 +64,6 @@ export default function UnitsPanel({ units, onEdit, onStatusChange, onTrafficSto
               <th onClick={() => setSort({ col: 'callsign', dir: 'asc' })}>Callsign</th>
               <th>Officer</th>
               <th>Dept</th>
-              <th>Vehicle</th>
               <th>Status</th>
               <th>Call</th>
               <th>Time</th>
@@ -77,7 +76,6 @@ export default function UnitsPanel({ units, onEdit, onStatusChange, onTrafficSto
                 <td className="mono fw">{u.callsign}</td>
                 <td>{u.officer_name}</td>
                 <td><span className="dept-tag" style={{ background: DEPARTMENTS[u.department]?.color }}>{u.department}</span></td>
-                <td className="truncate">{u.vehicle || '—'}</td>
                 <td className="status-cell">
                   <Select
                     variant="status"
@@ -97,7 +95,7 @@ export default function UnitsPanel({ units, onEdit, onStatusChange, onTrafficSto
                 )}
               </tr>
             ))}
-            {!list.length && <tr><td colSpan={8} className="empty">No units — add a unit to begin</td></tr>}
+            {!list.length && <tr><td colSpan={7} className="empty">No units — add a unit to begin</td></tr>}
           </tbody>
         </table>
       </div>

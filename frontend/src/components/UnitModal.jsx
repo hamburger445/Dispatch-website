@@ -10,7 +10,6 @@ export default function UnitModal({ unit, onClose, onSave, onDelete }) {
     callsign: unit?.callsign || '',
     officer_name: unit?.officer_name || '',
     department: unit?.department || 'WSP',
-    vehicle: unit?.vehicle || '',
     status: initialCustom ? '10-8' : (unit?.status || '10-8'),
     notes: unit?.notes || '',
   });
@@ -42,7 +41,6 @@ export default function UnitModal({ unit, onClose, onSave, onDelete }) {
           <label>Department
             <Select value={form.department} onChange={(v) => set('department', v)} options={deptOptions} />
           </label>
-          <label>Vehicle<input className="input" value={form.vehicle} onChange={e => set('vehicle', e.target.value)} /></label>
           <label>Status
             <Select
               value={useCustomStatus ? CUSTOM_STATUS_OPTION : form.status}
