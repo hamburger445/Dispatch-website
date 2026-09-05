@@ -1,35 +1,36 @@
 import { useState } from 'react';
-import { CALL_TYPES } from '../constants';
 import Select from './Select';
 
-export default function NewCallModal({ units, onClose, onSave }) {
+export default function NewCallModal({ units, fleet = [], callTypes = [], onClose, onSave }) {
   const [form, setForm] = useState({
     call_type: 'Other', priority: 3,
     address: '', cross_street: '', city: 'Greenville',
     description: '', dispatcher_notes: '',
   });
   const [selectedUnits, setSelectedUnits] = useState([]);
+  const [selectedFleet, setSelectedFleet] = useState([]);
   const [pickId, setPickId] = useState('');
   const [error, setError] = useState('');
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const available = units.filter(u => !selectedUnits.some(s => s.id === u.id));
+  const availableFleet = fleet.filter(u => !selectedFleet.some(s => s.id === u.id) && !u.call_id);
 
   const addUnit = () => {
-    const u = units.find(x => x.id === pickId);
-    if (u) {
-      setSelectedUnits(s => [...s, u]);
-      setPickId('');
-      setError('');
-    }
+    const u = [...units, ...fleet].find(x => x.id === pickId);
+    if (!u) return;
+    if (u.agency_type && u.agency_type !== 'law') setSelectedFleet(s => [...s, u]);
+    else setSelectedUnits(s => [...s, u]);
+    setPickId('');
+    setError('');
   };
 
   const submit = () => {
-    if (!selectedUnits.length) {
-      setError('Add at least one unit to this call.');
-      return;
-    }
-    onSave({ ...form, unit_ids: selectedUnits.map(u => u.id) });
+    onSave({
+      ...form,
+      unit_ids: selectedUnits.map(u => u.id),
+      fleet_ids: selectedFleet.map(u => u.id),
+    });
   };
 
   return (
@@ -42,7 +43,7 @@ export default function NewCallModal({ units, onClose, onSave }) {
             <Select
               value={form.call_type}
               onChange={(v) => set('call_type', v)}
-              options={CALL_TYPES.map(t => ({ value: t, label: t }))}
+              options={[...new Set([...callTypes.map(c => c.name), form.call_type])].map(t => ({ value: t, label: t }))}
             />
           </label>
           <label>Priority
@@ -59,16 +60,16 @@ export default function NewCallModal({ units, onClose, onSave }) {
         </div>
 
         <section className="assign-section">
-          <h3>Assign Units * <span className="hint-inline">Units are marked 10-97 on scene</span></h3>
+          <h3>Assign Units <span className="hint-inline">LE units are marked 10-97; Fire/EMS units are set Responding</span></h3>
           <div className="assign-row">
             <Select
               value={pickId}
               onChange={setPickId}
               placeholder="Select unit to add..."
-              options={available.map(u => ({
-                value: u.id,
-                label: `${u.callsign} — ${u.officer_name} (${u.department})`,
-              }))}
+              options={[
+                ...available.map(u => ({ value: u.id, label: `LE · ${u.callsign} — ${u.officer_name} (${u.department})` })),
+                ...availableFleet.map(u => ({ value: u.id, label: `${u.agency_type === 'fire' ? 'Fire' : 'EMS'} · ${u.callsign} — ${u.name || u.type}` })),
+              ]}
             />
             <button type="button" className="btn secondary" disabled={!pickId} onClick={addUnit}>Add Unit</button>
           </div>
@@ -79,7 +80,13 @@ export default function NewCallModal({ units, onClose, onSave }) {
                 <button type="button" onClick={() => setSelectedUnits(s => s.filter(x => x.id !== u.id))}>×</button>
               </span>
             ))}
-            {!selectedUnits.length && <span className="muted">No units added yet</span>}
+            {selectedFleet.map(u => (
+              <span key={u.id} className="unit-chip">
+                {u.agency_type === 'fire' ? 'Fire' : 'EMS'} · {u.callsign}
+                <button type="button" onClick={() => setSelectedFleet(s => s.filter(x => x.id !== u.id))}>×</button>
+              </span>
+            ))}
+            {!selectedUnits.length && !selectedFleet.length && <span className="muted">No units added yet — you can assign later</span>}
           </div>
         </section>
 

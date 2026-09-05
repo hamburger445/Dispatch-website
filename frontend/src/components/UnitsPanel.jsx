@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { DEPARTMENTS, UNIT_STATUSES, CUSTOM_STATUS_OPTION, getStatusColor, isPresetStatus, timeSince } from '../constants';
+
+const AGENCY_MAP = { GVFD: 'fire', GCEMS: 'ems' };
 import CustomStatusModal from './CustomStatusModal';
 import Select from './Select';
 
 export default function UnitsPanel({ units, onEdit, onStatusChange, onTrafficStop, compact }) {
   const [search, setSearch] = useState('');
   const [dept, setDept] = useState('');
+  const [agency, setAgency] = useState('all');
   const [sort, setSort] = useState({ col: 'callsign', dir: 'asc' });
   const [customUnit, setCustomUnit] = useState(null);
 
@@ -32,6 +35,7 @@ export default function UnitsPanel({ units, onEdit, onStatusChange, onTrafficSto
 
   let list = [...units];
   if (dept) list = list.filter(u => u.department === dept);
+  if (agency !== 'all') list = list.filter(u => (AGENCY_MAP[u.department] || 'law') === agency);
   if (search) {
     const q = search.toLowerCase();
     list = list.filter(u => u.callsign.toLowerCase().includes(q) || u.officer_name.toLowerCase().includes(q));
@@ -46,6 +50,13 @@ export default function UnitsPanel({ units, onEdit, onStatusChange, onTrafficSto
     ...Object.keys(DEPARTMENTS).map(d => ({ value: d, label: d })),
   ];
 
+  const agencyOptions = [
+    { value: 'all', label: 'All Units' },
+    { value: 'law', label: 'Law Enforcement' },
+    { value: 'fire', label: 'Fire' },
+    { value: 'ems', label: 'EMS' },
+  ];
+
   return (
     <div className={`panel units-panel${compact ? ' compact' : ''}`}>
       <div className="panel-top">
@@ -53,6 +64,7 @@ export default function UnitsPanel({ units, onEdit, onStatusChange, onTrafficSto
         {!compact && (
           <div className="filters">
             <input className="search-input" placeholder="Search units..." value={search} onChange={e => setSearch(e.target.value)} />
+            <Select className="filter-select" size="sm" value={agency} onChange={setAgency} options={agencyOptions} />
             <Select className="filter-select" size="sm" value={dept} onChange={setDept} options={deptOptions} />
           </div>
         )}

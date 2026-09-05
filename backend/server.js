@@ -4,8 +4,10 @@ const path = require('path');
 const fs = require('fs');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const { initDatabase, getDashboardStats, getUnitsWithCalls, getCallsWithUnits, getTrafficStops, all } = require('./database');
+const { initDatabase, getDashboardStats, getUnitsWithCalls, getCallsWithUnits, getTrafficStops, getFleetWithCalls, all } = require('./database');
 const apiRouter = require('./routes/api');
+const multiAgencyRouter = require('./routes/multiAgencyApi');
+const { optionalAuth, verify } = require('./auth');
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -24,6 +26,11 @@ function fullState() {
     stats: getDashboardStats(),
     units: getUnitsWithCalls(),
     calls: getCallsWithUnits(),
+    fleet: getFleetWithCalls(),
+    agencies: all('SELECT * FROM agencies ORDER BY name'),
+    departments: all('SELECT * FROM departments ORDER BY code'),
+    stations: all('SELECT * FROM stations ORDER BY number'),
+    callTypes: all('SELECT * FROM call_types ORDER BY agency_type, name'),
     trafficStops: getTrafficStops(false),
     activity: all('SELECT * FROM activity_log ORDER BY id DESC LIMIT 150'),
     settings: Object.fromEntries(
@@ -45,12 +52,17 @@ async function start() {
   app.use(cors());
   app.use(express.json({ limit: '10mb' }));
 
-  app.use('/api', apiRouter);
+  app.use('/api', optionalAuth, apiRouter);
+  app.use('/api', multiAgencyRouter);
   app.use('/maps', express.static(MAPS_DIR));
   app.use('/assets', express.static(ASSETS_DIR));
 
   io.on('connection', (socket) => {
     socket.emit('state:update', fullState());
+    socket.on('auth', (token) => {
+      const payload = token ? verify(token) : null;
+      if (payload?.id) socket.join(`user:${payload.id}`);
+    });
     socket.on('ping', () => socket.emit('pong'));
   });
 

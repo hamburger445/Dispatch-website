@@ -7,11 +7,13 @@ const {
   getUnitsWithCalls,
   getCallsWithUnits,
   getTrafficStops,
+  getFleetWithCalls,
   runMigrations,
   run,
   get,
   all,
 } = require('../database');
+const { addTimeline, notifyUnitOfficers } = require('../multiAgency');
 
 const router = express.Router();
 
@@ -19,6 +21,14 @@ const API_VERSION = 3;
 
 function emit(io, event, data) {
   if (io) io.emit(event, data);
+}
+
+function requireDispatcher(req, res) {
+  if (!req.auth || !['dispatcher', 'admin'].includes(req.auth.role)) {
+    res.status(403).json({ error: 'Dispatcher or admin permission required' });
+    return false;
+  }
+  return true;
 }
 
 router.get('/health', (_, res) => {
@@ -35,18 +45,31 @@ function fullState() {
     stats: getDashboardStats(),
     units: getUnitsWithCalls(),
     calls: getCallsWithUnits(),
+    fleet: getFleetWithCalls(),
+    agencies: all('SELECT * FROM agencies ORDER BY name'),
+    departments: all('SELECT * FROM departments ORDER BY code'),
+    stations: all('SELECT * FROM stations ORDER BY number'),
+    callTypes: all('SELECT * FROM call_types ORDER BY agency_type, name'),
     trafficStops: getTrafficStops(false),
     activity: all('SELECT * FROM activity_log ORDER BY id DESC LIMIT 150'),
     settings: Object.fromEntries(all('SELECT key, value FROM settings').map(r => [r.key, r.value])),
   };
 }
 
-router.get('/state', (_, res) => res.json(fullState()));
+router.get('/state', (req, res) => {
+  if (!req.auth) return res.status(401).json({ error: 'Authentication required' });
+  const state = fullState();
+  if (req.auth.role === 'personnel') {
+    state.calls = state.calls.map(({ dispatcher_notes, ...call }) => call);
+  }
+  res.json(state);
+});
 router.get('/dashboard', (_, res) => res.json({ ...getDashboardStats(), recentActivity: all('SELECT * FROM activity_log ORDER BY id DESC LIMIT 25') }));
 
 router.get('/units', (_, res) => res.json(getUnitsWithCalls()));
 
 router.post('/units', (req, res) => {
+  if (!requireDispatcher(req, res)) return;
   const io = req.app.get('io');
   const now = new Date().toISOString();
   const id = uuidv4();
@@ -61,6 +84,7 @@ router.post('/units', (req, res) => {
 });
 
 router.put('/units/:id', (req, res) => {
+  if (!requireDispatcher(req, res)) return;
   const io = req.app.get('io');
   const { id } = req.params;
   const existing = get('SELECT * FROM units WHERE id = ?', [id]);
@@ -89,6 +113,10 @@ router.put('/units/:id', (req, res) => {
 });
 
 router.patch('/units/:id/status', (req, res) => {
+  if (!req.auth) return res.status(401).json({ error: 'Authentication required' });
+  if (!['dispatcher', 'admin'].includes(req.auth.role)) {
+    return res.status(403).json({ error: 'Dispatcher or admin permission required' });
+  }
   const io = req.app.get('io');
   const { id } = req.params;
   const { status } = req.body;
@@ -110,6 +138,7 @@ router.patch('/units/:id/status', (req, res) => {
 });
 
 router.delete('/units/:id', (req, res) => {
+  if (!requireDispatcher(req, res)) return;
   const io = req.app.get('io');
   const existing = get('SELECT * FROM units WHERE id = ?', [req.params.id]);
   if (!existing) return res.status(404).json({ error: 'Not found' });
@@ -124,6 +153,7 @@ router.delete('/units/:id', (req, res) => {
 router.get('/calls', (_, res) => res.json(getCallsWithUnits()));
 
 router.post('/calls', (req, res) => {
+  if (!requireDispatcher(req, res)) return;
   try {
   const io = req.app.get('io');
   const now = new Date().toISOString();
@@ -132,8 +162,8 @@ router.post('/calls', (req, res) => {
   const b = req.body;
   const unitIds = Array.isArray(b.unit_ids) ? b.unit_ids.filter(Boolean) : [];
 
-  if (!unitIds.length) {
-    return res.status(400).json({ error: 'At least one unit must be assigned to create a call' });
+  if (!unitIds.length && !(Array.isArray(b.fleet_ids) && b.fleet_ids.filter(Boolean).length)) {
+    // A call may be created without pre-assigned units; dispatch assigns afterwards.
   }
 
   for (const unitId of unitIds) {
@@ -152,11 +182,38 @@ router.post('/calls', (req, res) => {
     run('INSERT INTO call_units (call_id, unit_id, assigned_at) VALUES (?, ?, ?)', [id, unitId, now]);
     run('UPDATE units SET status = ?, status_changed_at = ?, updated_at = ? WHERE id = ?',
       ['10-97', now, now, unitId]);
-    const unit = get('SELECT callsign FROM units WHERE id = ?', [unitId]);
+    const unit = get('SELECT * FROM units WHERE id = ?', [unitId]);
     logActivity('Unit Assigned', 'call', id, `${unit?.callsign} → ${incident_number} (10-97)`);
+    if (unit) {
+      notifyUnitOfficers(io, unit, {
+        type: 'assignment',
+        title: 'New Assignment',
+        message: `You have been assigned to Call ${incident_number}.`,
+        call_id: id,
+      });
+    }
   }
 
   logActivity('Call Created', 'call', id, `${incident_number} — ${b.call_type}`);
+  addTimeline(id, 'Call created', `${b.call_type} — ${b.address || 'No address'}`);
+  for (const unitId of unitIds) {
+    const u = get('SELECT callsign FROM units WHERE id = ?', [unitId]);
+    if (u) addTimeline(id, 'Unit assigned', `${u.callsign} assigned`);
+  }
+  for (const fleetId of (Array.isArray(b.fleet_ids) ? b.fleet_ids.filter(Boolean) : [])) {
+    const f = get('SELECT * FROM fleet WHERE id = ?', [fleetId]);
+    if (f) {
+      run('UPDATE fleet SET call_id = ?, status = ? WHERE id = ?', [id, 'Responding', fleetId]);
+      addTimeline(id, 'Unit assigned', `${f.callsign} (${f.agency_type === 'fire' ? 'Fire' : 'EMS'}) assigned`);
+      logActivity('Unit Assigned', 'call', id, `${f.callsign} → ${incident_number} (Responding)`);
+      notifyUnitOfficers(io, f, {
+        type: 'assignment',
+        title: 'New Assignment',
+        message: `You have been assigned to Call ${incident_number}.`,
+        call_id: id,
+      });
+    }
+  }
   const state = fullState();
   emit(io, 'state:update', state);
   emit(io, 'notification', { type: 'call', message: `New call ${incident_number}` });
@@ -168,6 +225,7 @@ router.post('/calls', (req, res) => {
 });
 
 router.put('/calls/:id', (req, res) => {
+  if (!requireDispatcher(req, res)) return;
   const io = req.app.get('io');
   const { id } = req.params;
   const existing = get('SELECT * FROM calls WHERE id = ?', [id]);
@@ -185,10 +243,28 @@ router.put('/calls/:id', (req, res) => {
     assigned.forEach(({ unit_id }) => {
       run('UPDATE units SET status = ?, status_changed_at = ?, updated_at = ? WHERE id = ?',
         ['10-8', now, now, unit_id]);
+      const u = get('SELECT * FROM units WHERE id = ?', [unit_id]);
+      if (u) notifyUnitOfficers(io, u, {
+        type: 'info', title: 'Call Closed', message: `${existing.incident_number} has been ${String(updates.status).toLowerCase()}.`, call_id: id,
+      });
     });
+    run("UPDATE fleet SET status = 'Available', call_id = NULL WHERE call_id = ?", [id]);
     run('DELETE FROM call_units WHERE call_id = ?', [id]);
+    addTimeline(id, updates.status, 'Incident ' + String(updates.status).toLowerCase());
   } else {
     logActivity('Call Edited', 'call', id, existing.incident_number);
+    if (updates.priority && Number(updates.priority) !== Number(existing.priority)) {
+      const assignedUnits = all('SELECT unit_id FROM call_units WHERE call_id = ?', [id]);
+      assignedUnits.forEach(({ unit_id }) => {
+        const u = get('SELECT * FROM units WHERE id = ?', [unit_id]);
+        if (u) notifyUnitOfficers(io, u, {
+          type: 'warn',
+          title: 'Priority Updated',
+          message: `${existing.incident_number} has been changed to Priority ${updates.priority}.`,
+          call_id: id,
+        });
+      });
+    }
   }
   updates.updated_at = now;
   const keys = Object.keys(updates);
@@ -199,10 +275,12 @@ router.put('/calls/:id', (req, res) => {
 });
 
 router.delete('/calls/:id', (req, res) => {
+  if (!requireDispatcher(req, res)) return;
   const io = req.app.get('io');
   const existing = get('SELECT * FROM calls WHERE id = ?', [req.params.id]);
   if (!existing) return res.status(404).json({ error: 'Not found' });
   run('DELETE FROM call_units WHERE call_id = ?', [req.params.id]);
+  run("UPDATE fleet SET status = 'Available', call_id = NULL WHERE call_id = ?", [req.params.id]);
   run('DELETE FROM calls WHERE id = ?', [req.params.id]);
   logActivity('Call Deleted', 'call', req.params.id, existing.incident_number);
   const state = fullState();
@@ -211,6 +289,7 @@ router.delete('/calls/:id', (req, res) => {
 });
 
 router.post('/calls/:id/assign', (req, res) => {
+  if (!requireDispatcher(req, res)) return;
   const io = req.app.get('io');
   const { id } = req.params;
   const { unit_id } = req.body;
@@ -219,12 +298,20 @@ router.post('/calls/:id/assign', (req, res) => {
   if (!call || !unit) return res.status(404).json({ error: 'Not found' });
 
   const now = new Date().toISOString();
-  if (!get('SELECT 1 FROM call_units WHERE call_id = ? AND unit_id = ?', [id, unit_id])) {
+    if (!get('SELECT 1 FROM call_units WHERE call_id = ? AND unit_id = ?', [id, unit_id])) {
     run('INSERT INTO call_units (call_id, unit_id, assigned_at) VALUES (?, ?, ?)', [id, unit_id, now]);
     run('UPDATE units SET status = ?, status_changed_at = ?, updated_at = ? WHERE id = ?',
       ['10-97', now, now, unit_id]);
     if (call.status === 'Pending') run('UPDATE calls SET status = ?, updated_at = ? WHERE id = ?', ['Active', now, id]);
     logActivity('Unit Assigned', 'call', id, `${unit.callsign} → ${call.incident_number} (10-97)`);
+    addTimeline(id, 'Unit assigned', `${unit.callsign} assigned`);
+    notifyUnitOfficers(io, unit, {
+      type: 'assignment',
+      title: 'New Assignment',
+      message: `You have been assigned to Call ${call.incident_number}.`,
+      call_id: id,
+    });
+    emit(io, 'notification', { type: 'assignment', message: `${unit.callsign} assigned to ${call.incident_number}` });
   }
   const state = fullState();
   emit(io, 'state:update', state);
@@ -232,6 +319,7 @@ router.post('/calls/:id/assign', (req, res) => {
 });
 
 router.post('/calls/:id/unassign', (req, res) => {
+  if (!requireDispatcher(req, res)) return;
   const io = req.app.get('io');
   const { id } = req.params;
   const { unit_id } = req.body;
@@ -244,12 +332,20 @@ router.post('/calls/:id/unassign', (req, res) => {
   run('UPDATE units SET status = ?, status_changed_at = ?, updated_at = ? WHERE id = ?',
     ['10-8', now, now, unit_id]);
   logActivity('Unit Unassigned', 'call', id, `${unit.callsign} removed from ${call.incident_number}`);
+  addTimeline(id, 'Unit removed', `${unit.callsign} removed`);
+  notifyUnitOfficers(io, unit, {
+    type: 'info',
+    title: 'Assignment Removed',
+    message: `You have been removed from Call ${call.incident_number}.`,
+    call_id: id,
+  });
   const state = fullState();
   emit(io, 'state:update', state);
   res.json(state);
 });
 
 router.post('/traffic-stops', (req, res) => {
+  if (!requireDispatcher(req, res)) return;
   try {
     const io = req.app.get('io');
     const { unit_id, location, plate_number, vehicle_description, reason, notes } = req.body;
@@ -281,6 +377,7 @@ router.post('/traffic-stops', (req, res) => {
 });
 
 router.post('/traffic-stops/:id/clear', (req, res) => {
+  if (!requireDispatcher(req, res)) return;
   const io = req.app.get('io');
   const stop = get('SELECT * FROM traffic_stops WHERE id = ?', [req.params.id]);
   if (!stop) return res.status(404).json({ error: 'Not found' });
@@ -304,6 +401,7 @@ router.post('/traffic-stops/:id/clear', (req, res) => {
 });
 
 router.post('/traffic-stops/:id/add-unit', (req, res) => {
+  if (!requireDispatcher(req, res)) return;
   try {
     const io = req.app.get('io');
     const stop = get('SELECT * FROM traffic_stops WHERE id = ?', [req.params.id]);
@@ -356,6 +454,7 @@ router.get('/search', (req, res) => {
 });
 
 router.put('/settings', (req, res) => {
+  if (!req.auth) return res.status(401).json({ error: 'Authentication required' });
   const io = req.app.get('io');
   for (const [key, value] of Object.entries(req.body)) {
     if (get('SELECT key FROM settings WHERE key = ?', [key])) run('UPDATE settings SET value = ? WHERE key = ?', [value, key]);
@@ -367,6 +466,9 @@ router.put('/settings', (req, res) => {
 });
 
 router.get('/reports/:type', (req, res) => {
+  if (!req.auth || !['dispatcher', 'admin'].includes(req.auth.role)) {
+    return res.status(403).json({ error: 'Dispatcher or admin permission required' });
+  }
   switch (req.params.type) {
     case 'incidents': return res.json(all('SELECT * FROM calls ORDER BY created_at DESC'));
     case 'active-calls': return res.json(all("SELECT * FROM calls WHERE status NOT IN ('Closed', 'Cancelled') ORDER BY priority, created_at"));
@@ -374,6 +476,81 @@ router.get('/reports/:type', (req, res) => {
     case 'activity-log': return res.json(all('SELECT * FROM activity_log ORDER BY id DESC'));
     default: return res.status(404).json({ error: 'Unknown report' });
   }
+});
+
+// ---------- Multi-agency fleet assignment (Fire apparatus / EMS units) ----------
+
+router.post('/calls/:id/assign-fleet', (req, res) => {
+  if (!requireDispatcher(req, res)) return;
+  const io = req.app.get('io');
+  const { id } = req.params;
+  const { fleet_id } = req.body;
+  const call = get('SELECT * FROM calls WHERE id = ?', [id]);
+  const fleet = get('SELECT * FROM fleet WHERE id = ?', [fleet_id]);
+  if (!call || !fleet) return res.status(404).json({ error: 'Not found' });
+
+  const nowTs = new Date().toISOString();
+  if (fleet.call_id !== id) {
+    run('UPDATE fleet SET call_id = ?, status = ? WHERE id = ?', [id, 'Responding', fleet_id]);
+    if (call.status === 'Pending') run('UPDATE calls SET status = ?, updated_at = ? WHERE id = ?', ['Active', nowTs, id]);
+    logActivity('Unit Assigned', 'call', id, `${fleet.callsign} → ${call.incident_number} (Responding)`);
+    addTimeline(id, 'Unit assigned', `${fleet.callsign} (${fleet.agency_type === 'fire' ? 'Fire' : 'EMS'}) assigned — Responding`);
+    notifyUnitOfficers(io, fleet, {
+      type: 'assignment',
+      title: 'New Assignment',
+      message: `You have been assigned to Call ${call.incident_number}.`,
+      call_id: id,
+    });
+    emit(io, 'notification', { type: 'assignment', message: `${fleet.callsign} assigned to ${call.incident_number}` });
+  }
+  const state = fullState();
+  emit(io, 'state:update', state);
+  res.json(state);
+});
+
+router.post('/calls/:id/unassign-fleet', (req, res) => {
+  if (!requireDispatcher(req, res)) return;
+  const io = req.app.get('io');
+  const { id } = req.params;
+  const { fleet_id } = req.body;
+  const call = get('SELECT * FROM calls WHERE id = ?', [id]);
+  const fleet = get('SELECT * FROM fleet WHERE id = ?', [fleet_id]);
+  if (!call || !fleet) return res.status(404).json({ error: 'Not found' });
+
+  const defaultStatus = fleet.agency_type === 'fire' ? 'In Quarters' : 'Available';
+  run('UPDATE fleet SET call_id = NULL, status = ? WHERE id = ?', [defaultStatus, fleet_id]);
+  logActivity('Unit Unassigned', 'call', id, `${fleet.callsign} removed from ${call.incident_number}`);
+  addTimeline(id, 'Unit removed', `${fleet.callsign} removed from incident`);
+  notifyUnitOfficers(io, fleet, {
+    type: 'info',
+    title: 'Assignment Removed',
+    message: `You have been removed from Call ${call.incident_number}.`,
+    call_id: id,
+  });
+  const state = fullState();
+  emit(io, 'state:update', state);
+  res.json(state);
+});
+
+// Personnel update their fleet unit's assignment status on an active call (Responding / On Scene / Transporting / Returning)
+router.post('/fleet/:id/call-status', (req, res) => {
+  if (!req.auth) return res.status(401).json({ error: 'Authentication required' });
+  const io = req.app.get('io');
+  const { id } = req.params;
+  const { status } = req.body || {};
+  const fleet = get('SELECT * FROM fleet WHERE id = ?', [id]);
+  if (!fleet) return res.status(404).json({ error: 'Unit not found' });
+  if (!fleet.call_id) return res.status(400).json({ error: 'Unit is not assigned to a call' });
+  if (!status) return res.status(400).json({ error: 'Status required' });
+
+  run('UPDATE fleet SET status = ? WHERE id = ?', [status, id]);
+  const call = get('SELECT incident_number FROM calls WHERE id = ?', [fleet.call_id]);
+  logActivity('Assignment Status', 'call', fleet.call_id, `${fleet.callsign}: ${status}`);
+  addTimeline(fleet.call_id, status, `${fleet.callsign} is ${status}`);
+  emit(io, 'notification', { type: 'info', message: `${fleet.callsign} — ${status}${call ? ` (${call.incident_number})` : ''}` });
+  const state = fullState();
+  emit(io, 'state:update', state);
+  res.json(state);
 });
 
 module.exports = router;

@@ -1,10 +1,16 @@
 import { useState } from 'react';
-import { CALL_TYPES, CALL_STATUSES, PRIORITY_LABELS, formatDateTime, timeSince } from '../constants';
+import { CALL_STATUSES, PRIORITY_LABELS, timeSince } from '../constants';
 import Select from './Select';
+import Timeline from './Timeline';
 
-export default function CallEditor({ call, units, onSave, onDelete, onClose, onCancel, onAssign, onUnassign }) {
+const AGENCY_LABEL = { law: 'LE', fire: 'Fire', ems: 'EMS' };
+
+export default function CallEditor({ call, units, fleet = [], callTypes = [], onSave, onDelete, onClose, onCancel, onAssign, onUnassign, onAssignFleet, onUnassignFleet }) {
   const [form, setForm] = useState(null);
   const [assignId, setAssignId] = useState('');
+  const [unitSearch, setUnitSearch] = useState('');
+  const [fleetFilter, setFleetFilter] = useState('all');
+  const [fleetSearch, setFleetSearch] = useState('');
 
   if (!call) {
     return (
@@ -19,7 +25,19 @@ export default function CallEditor({ call, units, onSave, onDelete, onClose, onC
 
   const save = () => onSave(form || call);
 
-  const available = units.filter(u => !call.assigned_units?.some(a => a.id === u.id));
+  const q = unitSearch.trim().toLowerCase();
+  const available = units.filter(u => {
+    if (call.assigned_units?.some(a => a.id === u.id)) return false;
+    if (!q) return true;
+    return [u.callsign, u.officer_name, u.department, u.status, u.current_call].some(v => String(v || '').toLowerCase().includes(q));
+  });
+
+  const availableFleet = fleet.filter(f =>
+    f.call_id !== call.id &&
+    (fleetFilter === 'all' || f.agency_type === fleetFilter) &&
+    (!fleetSearch || f.callsign.toLowerCase().includes(fleetSearch.toLowerCase()) || (f.name || '').toLowerCase().includes(fleetSearch.toLowerCase()))
+  );
+  const suggestedFleet = availableFleet.filter(f => f.call_id === null || f.call_id === undefined);
 
   return (
     <div className="panel call-editor">
@@ -46,7 +64,10 @@ export default function CallEditor({ call, units, onSave, onDelete, onClose, onC
               <Select
                 value={f.call_type}
                 onChange={(v) => set('call_type', v)}
-                options={CALL_TYPES.map(t => ({ value: t, label: t }))}
+                options={[...new Set([
+                  ...callTypes.map(c => c.name),
+                  f.call_type,
+                ])].map(t => ({ value: t, label: t }))}
               />
             </label>
             <label>Priority
@@ -86,15 +107,18 @@ export default function CallEditor({ call, units, onSave, onDelete, onClose, onC
         </section>
 
         <section className="editor-section">
-          <h3>Assigned Units</h3>
+          <h3>Assigned Units — Law Enforcement</h3>
+          <div className="assign-row">
+            <input className="input" placeholder="Search callsign, officer, badge, department..." value={unitSearch} onChange={e => setUnitSearch(e.target.value)} />
+          </div>
           <div className="assign-row">
             <Select
               value={assignId}
               onChange={setAssignId}
-              placeholder="Add unit..."
+              placeholder="Add LE unit..."
               options={available.map(u => ({
                 value: u.id,
-                label: `${u.callsign} — ${u.officer_name} (${u.department})`,
+                label: `${u.callsign} — ${u.officer_name} (${u.department}) · ${u.status}${u.current_call ? ` · ${u.current_call}` : ' · available'}`,
               }))}
             />
             <button className="btn secondary" disabled={!assignId} onClick={() => { onAssign(call.id, assignId); setAssignId(''); }}>Assign</button>
@@ -112,9 +136,65 @@ export default function CallEditor({ call, units, onSave, onDelete, onClose, onC
                   <td><button className="btn-xs" onClick={() => onUnassign(call.id, u.id)}>Remove</button></td>
                 </tr>
               ))}
-              {!call.assigned_units?.length && <tr><td colSpan={6} className="empty">No units assigned</td></tr>}
+              {!call.assigned_units?.length && <tr><td colSpan={6} className="empty">No LE units assigned</td></tr>}
             </tbody>
           </table>
+        </section>
+
+        <section className="editor-section">
+          <h3>Assigned Units — Fire & EMS (Mutual Aid)</h3>
+          <div className="assign-row">
+            <input className="input" placeholder="Search callsign / unit..." value={fleetSearch} onChange={e => setFleetSearch(e.target.value)} />
+            <Select value={fleetFilter} onChange={setFleetFilter} options={[
+              { value: 'all', label: 'All Agencies' },
+              { value: 'fire', label: 'Fire' },
+              { value: 'ems', label: 'EMS' },
+            ]} />
+          </div>
+          {onAssignFleet && (
+            <div className="assign-row">
+              <Select
+                value=""
+                onChange={(v) => { onAssignFleet(call.id, v); }}
+                placeholder="Assign Fire/EMS unit..."
+                options={availableFleet.map(fu => ({
+                  value: fu.id,
+                  label: `${fu.callsign} — ${fu.name || fu.type} (${AGENCY_LABEL[fu.agency_type]}${fu.call_id ? ' · busy' : ' · available'})`,
+                }))}
+              />
+            </div>
+          )}
+          {!!suggestedFleet.length && onAssignFleet && (
+            <div className="unit-chips">
+              <span className="muted">Suggested available:</span>
+              {suggestedFleet.slice(0, 8).map(fu => (
+                <button key={fu.id} className="unit-chip as-btn" onClick={() => onAssignFleet(call.id, fu.id)}>
+                  {fu.callsign} ({AGENCY_LABEL[fu.agency_type]})
+                </button>
+              ))}
+            </div>
+          )}
+          <table className="cad-table compact">
+            <thead><tr><th>Callsign</th><th>Unit</th><th>Agency</th><th>Status</th><th>Crew</th><th></th></tr></thead>
+            <tbody>
+              {(call.assigned_fleet || []).map(fu => (
+                <tr key={fu.id}>
+                  <td className="mono fw">{fu.callsign}</td>
+                  <td>{fu.name || fu.type}</td>
+                  <td>{AGENCY_LABEL[fu.agency_type]}</td>
+                  <td>{fu.status}</td>
+                  <td>{(fu.crew || []).map(c => c.name).join(', ') || '—'}</td>
+                  <td>{onUnassignFleet && <button className="btn-xs" onClick={() => onUnassignFleet(call.id, fu.id)}>Remove</button>}</td>
+                </tr>
+              ))}
+              {!call.assigned_fleet?.length && <tr><td colSpan={6} className="empty">No Fire/EMS units assigned</td></tr>}
+            </tbody>
+          </table>
+        </section>
+
+        <section className="editor-section">
+          <h3>Incident Timeline</h3>
+          <Timeline timeline={call.timeline} />
         </section>
       </div>
     </div>

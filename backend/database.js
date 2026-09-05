@@ -158,9 +158,32 @@ function getUnitsWithCalls() {
       (SELECT c.incident_number FROM calls c
        JOIN call_units cu ON cu.call_id = c.id
        WHERE cu.unit_id = u.id AND c.status NOT IN ('Closed', 'Cancelled')
-       LIMIT 1) as current_call
+       LIMIT 1) as current_call,
+      (SELECT c.call_type FROM calls c
+       JOIN call_units cu ON cu.call_id = c.id
+       WHERE cu.unit_id = u.id AND c.status NOT IN ('Closed', 'Cancelled')
+       LIMIT 1) as current_call_type
     FROM units u ORDER BY u.department, u.callsign
   `);
+}
+
+function getFleetWithCalls() {
+  return all(`
+    SELECT f.*,
+      s.name as station_name, s.number as station_number,
+      d.code as department_code,
+      c.incident_number as current_call,
+      c.call_type as current_call_type
+    FROM fleet f
+    LEFT JOIN stations s ON s.id = f.station_id
+    LEFT JOIN departments d ON d.id = f.department_id
+    LEFT JOIN calls c ON c.id = f.call_id AND c.status NOT IN ('Closed', 'Cancelled')
+    ORDER BY f.department_id, f.callsign
+  `).map(f => ({ ...f, crew: safeParseCrew(f.crew) }));
+}
+
+function safeParseCrew(crew) {
+  try { return JSON.parse(crew || '[]'); } catch { return []; }
 }
 
 function getCallsWithUnits() {
@@ -170,10 +193,15 @@ function getCallsWithUnits() {
       priority ASC, created_at DESC
   `).map(call => ({
     ...call,
+    timeline: all('SELECT * FROM call_timeline WHERE call_id = ? ORDER BY created_at, id', [call.id]),
     assigned_units: all(`
       SELECT u.id, u.callsign, u.officer_name, u.department, u.status, cu.assigned_at
       FROM units u JOIN call_units cu ON cu.unit_id = u.id
       WHERE cu.call_id = ? ORDER BY cu.assigned_at
+    `, [call.id]),
+    assigned_fleet: all(`
+      SELECT f.id, f.callsign, f.unit_number, f.type, f.agency_type, f.status, f.crew, f.created_at as assigned_at
+      FROM fleet f WHERE f.call_id = ? ORDER BY f.created_at
     `, [call.id]),
   }));
 }
@@ -232,6 +260,7 @@ async function initDatabase() {
 
   initSchema();
   runMigrations();
+  require('./multiAgency').initMultiAgencySchema();
 
   run("UPDATE units SET status = '10-23' WHERE status = 'En Route'");
   run("UPDATE units SET status = '10-7' WHERE status = 'Off Duty'");
@@ -244,6 +273,7 @@ async function initDatabase() {
 
 module.exports = {
   initDatabase,
+  getFleetWithCalls,
   logActivity,
   generateIncidentNumber,
   getDashboardStats,

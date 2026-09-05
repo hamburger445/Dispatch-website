@@ -368,3 +368,61 @@ textarea.input { font-family: inherit; }
 @media (max-width: 1100px) {
   .cad-right { display: none; }
 }
+
+/* ---------- Login ---------- */
+.login-screen {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(1200px 600px at 50% -10%, #1d2a3a, #0f1419);
+}
+.login-card {
+  background: var(--panel, #1a2129); padding: 32px; border-radius: 14px; width: 380px;
+  display: flex; flex-direction: column; gap: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  border: 1px solid rgba(255,255,255,.08);
+}
+.login-card h1 { margin: 0; font-size: 22px; text-align: center; }
+.login-card p.muted { text-align: center; margin: 0; font-size: 13px; }
+.login-card .cad-brand-mark.big { width: 56px; height: 56px; font-size: 22px; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
+.login-card .btn.lg { padding: 10px; font-size: 15px; }
+.login-hint { font-size: 11px; line-height: 1.5; }
+
+/* ---------- Portal ---------- */
+.portal-app { position: relative; }
+.logout-btn { position: absolute; top: 12px; right: 16px; z-index: 10; }
+.portal { padding: 20px; max-width: 1400px; margin: 0 auto; }
+.portal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
+.portal-header h1 { margin: 4px 0 8px; font-size: 24px; }
+.portal-agency { text-transform: uppercase; letter-spacing: 1px; font-size: 12px; color: #1d9bf0; font-weight: 700; }
+.portal-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill { background: rgba(255,255,255,.07); border-radius: 999px; padding: 3px 10px; font-size: 12px; }
+.portal-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.portal-grid .span-2 { grid-column: span 2; }
+.portal-status { display: flex; flex-direction: column; gap: 10px; }
+.status-big { font-size: 20px; font-weight: 800; color: #22c55e; }
+.call-mini { border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 10px; margin-bottom: 8px; cursor: pointer; }
+.call-mini:hover { border-color: #1d9bf0; }
+.call-mini.selected { border-color: #1d9bf0; background: rgba(29,155,240,.08); }
+.call-mini.active { border-color: #22c55e; }
+.call-mini .btn-row { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.scroll-list { max-height: 260px; overflow-y: auto; }
+.header-user { font-size: 13px; display: inline-flex; align-items: center; gap: 8px; }
+
+/* ---------- Timeline ---------- */
+.timeline { list-style: none; padding: 0; margin: 0; border-left: 2px solid rgba(255,255,255,.15); }
+.timeline li { padding: 4px 0 4px 14px; position: relative; font-size: 13px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.timeline li::before { content: ''; position: absolute; left: -5px; top: 11px; width: 8px; height: 8px; border-radius: 50%; background: #1d9bf0; }
+.tl-time { font-family: ui-monospace, monospace; color: #94a3b8; min-width: 44px; }
+.tl-event { font-weight: 600; }
+.tl-details { font-size: 12px; }
+
+/* ---------- Admin ---------- */
+.admin-modal { width: min(1100px, 95vw); max-height: 90vh; display: flex; flex-direction: column; }
+.admin-tabs { display: flex; gap: 4px; border-bottom: 1px solid rgba(255,255,255,.1); padding-bottom: 8px; flex-wrap: wrap; }
+.admin-tabs button { background: none; border: 1px solid transparent; color: inherit; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.admin-tabs button.active { background: rgba(29,155,240,.15); border-color: #1d9bf0; color: #1d9bf0; }
+.admin-body { overflow-y: auto; padding-top: 12px; }
+.admin-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.admin-cols section { min-width: 0; }
+.ct-list { list-style: none; padding: 0; margin: 0; }
+.ct-list li { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 13px; }
+.unit-chip.as-btn { cursor: pointer; border: 1px solid rgba(255,255,255,.2); background: none; color: inherit; border-radius: 999px; padding: 3px 10px; font-size: 12px; }
+.btn-xs.danger { color: #ef4444; }

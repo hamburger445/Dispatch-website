@@ -15,10 +15,51 @@ import TrafficStopDetailModal from './components/TrafficStopDetailModal';
 import SearchModal from './components/SearchModal';
 import ReportsPanel from './components/ReportsPanel';
 import Notifications from './components/Notifications';
+import ActivityPanel from './components/ActivityPanel';
+import Portal from './components/Portal';
+import AdminPanel from './components/AdminPanel';
+import Login from './components/Login';
+import { useAuth } from './auth';
 import { api } from './constants';
 
 export default function App() {
-  const { state, connected, notifications, setTheme, notify } = useCAD();
+  const { user, loading, logout } = useAuth();
+  const { state, connected, notifications, setTheme, notify, officerNotes, dismissNote } = useCAD();
+
+  const theme = state?.settings?.theme || 'dark';
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.style.colorScheme = theme;
+  }, [theme]);
+
+  if (loading) {
+    return <div className="cad-app loading"><div className="spinner" /><p>Loading…</p></div>;
+  }
+  if (!user) {
+    return <Login />;
+  }
+  if (user.role === 'personnel') {
+    if (!state) return <div className="cad-app loading"><div className="spinner" /><p>Loading Greenville CAD...</p></div>;
+    return (
+      <>
+        <Portal state={state} connected={connected} notify={notify} officerNotes={officerNotes} onDismissNote={dismissNote} />
+        <Notifications items={notifications} />
+      </>
+    );
+  }
+
+  if (!state) {
+    return <div className="cad-app loading"><div className="spinner" /><p>Loading Greenville CAD...</p></div>;
+  }
+
+  return <DispatcherConsole
+    state={state} connected={connected} notifications={notifications} setTheme={setTheme}
+    notify={notify} user={user} logout={logout}
+  />;
+}
+
+function DispatcherConsole({ state, connected, notifications, setTheme, notify, user, logout }) {
   const [view, setView] = useState('dispatch');
   const [selectedCallId, setSelectedCallId] = useState(null);
   const [unitModal, setUnitModal] = useState(null);
@@ -27,7 +68,7 @@ export default function App() {
   const [trafficStopDetail, setTrafficStopDetail] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
-
+  const [adminOpen, setAdminOpen] = useState(false);
   const theme = state?.settings?.theme || 'dark';
 
   useEffect(() => {
@@ -48,10 +89,6 @@ export default function App() {
     await api('PUT', `/calls/${data.id}`, data);
   }, []);
 
-  if (!state) {
-    return <div className="cad-app loading"><div className="spinner" /><p>Loading Greenville CAD...</p></div>;
-  }
-
   const handleNewCall = async (data) => {
     try {
       const res = await api('POST', '/calls', data);
@@ -68,7 +105,7 @@ export default function App() {
 
   return (
     <div className="cad-app">
-      <Header connected={connected} theme={theme} onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onSearch={() => setSearchOpen(true)} />
+      <Header connected={connected} theme={theme} onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onSearch={() => setSearchOpen(true)} user={user} onLogout={logout} onAdmin={user.role === 'admin' ? () => setAdminOpen(true) : undefined} />
 
       <div className="cad-body">
         <Sidebar view={view} setView={setView} stats={state.stats} onReports={() => setReportsOpen(true)} />
@@ -92,12 +129,16 @@ export default function App() {
                 key={selectedCall?.id || 'none'}
                 call={selectedCall}
                 units={state.units}
+                fleet={state.fleet || []}
+                callTypes={state.callTypes || []}
                 onSave={saveCall}
                 onDelete={async (id) => { await api('DELETE', `/calls/${id}`); setSelectedCallId(null); }}
                 onClose={async (id) => { await api('PUT', `/calls/${id}`, { status: 'Closed' }); }}
                 onCancel={async (id) => { await api('PUT', `/calls/${id}`, { status: 'Cancelled' }); }}
                 onAssign={(callId, unitId) => api('POST', `/calls/${callId}/assign`, { unit_id: unitId })}
                 onUnassign={(callId, unitId) => api('POST', `/calls/${callId}/unassign`, { unit_id: unitId })}
+                onAssignFleet={(callId, fleetId) => api('POST', `/calls/${callId}/assign-fleet`, { fleet_id: fleetId })}
+                onUnassignFleet={(callId, fleetId) => api('POST', `/calls/${callId}/unassign-fleet`, { fleet_id: fleetId })}
               />
             </div>
           )}
@@ -109,12 +150,16 @@ export default function App() {
                 key={selectedCall?.id || 'none'}
                 call={selectedCall}
                 units={state.units}
+                fleet={state.fleet || []}
+                callTypes={state.callTypes || []}
                 onSave={saveCall}
                 onDelete={async (id) => { await api('DELETE', `/calls/${id}`); setSelectedCallId(null); }}
                 onClose={async (id) => { await api('PUT', `/calls/${id}`, { status: 'Closed' }); }}
                 onCancel={async (id) => { await api('PUT', `/calls/${id}`, { status: 'Cancelled' }); }}
                 onAssign={(callId, unitId) => api('POST', `/calls/${callId}/assign`, { unit_id: unitId })}
                 onUnassign={(callId, unitId) => api('POST', `/calls/${callId}/unassign`, { unit_id: unitId })}
+                onAssignFleet={(callId, fleetId) => api('POST', `/calls/${callId}/assign-fleet`, { fleet_id: fleetId })}
+                onUnassignFleet={(callId, fleetId) => api('POST', `/calls/${callId}/unassign-fleet`, { fleet_id: fleetId })}
               />
             </div>
           )}
@@ -180,6 +225,8 @@ export default function App() {
       {newCallOpen && (
         <NewCallModal
           units={state.units}
+          fleet={state.fleet || []}
+          callTypes={state.callTypes || []}
           onClose={() => setNewCallOpen(false)}
           onSave={handleNewCall}
         />
@@ -219,6 +266,8 @@ export default function App() {
       )}
 
       {reportsOpen && <ReportsPanel onClose={() => setReportsOpen(false)} />}
+
+      {adminOpen && <AdminPanel state={state} onClose={() => setAdminOpen(false)} notify={notify} />}
     </div>
   );
 }

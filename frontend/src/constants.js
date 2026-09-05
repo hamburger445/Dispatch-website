@@ -6,7 +6,7 @@ export const DEPARTMENTS = {
 };
 
 export const UNIT_STATUSES = [
-  '10-8', '10-6', '10-7', '10-15', '10-97', '10-23', 'Traffic Stop', 'Report Writing', 'Returning', 'Signal 11',
+  '10-8', '10-6', '10-7', '10-15', '10-97', '10-23', 'On Scene', 'Traffic Stop', 'Transporting', 'Report Writing', 'Returning', 'Signal 11',
 ];
 
 export const CUSTOM_STATUS_OPTION = '__custom__';
@@ -18,7 +18,9 @@ export const STATUS_COLORS = {
   '10-15': '#d97706',
   '10-97': '#ef4444',
   '10-23': '#3b82f6',
+  'On Scene': '#ef4444',
   'Traffic Stop': '#a855f7',
+  'Transporting': '#0ea5e9',
   'Report Writing': '#6366f1',
   'Returning': '#14b8a6',
   'Signal 11': '#ec4899',
@@ -42,11 +44,11 @@ export const CALL_TYPES = [
 ];
 
 export const PRIORITY_LABELS = {
-  1: { label: 'P1', color: '#ef4444' },
-  2: { label: 'P2', color: '#f97316' },
-  3: { label: 'P3', color: '#eab308' },
-  4: { label: 'P4', color: '#22c55e' },
-  5: { label: 'P5', color: '#6b7280' },
+  1: { label: 'P1', color: '#ef4444', detail: 'Emergency / immediate response' },
+  2: { label: 'P2', color: '#f97316', detail: 'Urgent' },
+  3: { label: 'P3', color: '#eab308', detail: 'Routine' },
+  4: { label: 'P4', color: '#22c55e', detail: 'Low' },
+  5: { label: 'P5', color: '#6b7280', detail: 'Information' },
 };
 
 export function formatTime(iso) {
@@ -71,6 +73,8 @@ export function timeSince(iso) {
 
 export async function api(method, path, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  const token = localStorage.getItem('cad_token');
+  if (token) opts.headers.Authorization = `Bearer ${token}`;
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(`/api${path}`, opts);
   if (!res.ok) {
