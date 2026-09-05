@@ -260,8 +260,9 @@ function seedDefaults() {
   }
 
   const stations = [
-    ['st-gvfd-1', '1', 'Fire Station 1', 'dep-gvfd', '1200 W Main St'],
-    ['st-gvfd-2', '2', 'Fire Station 2', 'dep-gvfd', '450 Broadway'],
+    ['st-wsp-1', '1', 'WSP Station 1', 'dep-wsp', '1200 W Main St'],
+    ['st-ocso-1', '1', 'OCSO Station 1', 'dep-ocso', '450 Broadway'],
+    ['st-gvfd-1', '1', 'GVFD Station 1', 'dep-gvfd', '1200 W Main St'],
     ['st-gcem-1', '1', 'EMS Station 1', 'dep-gcem', '1202 W Main St'],
   ];
   for (const [id, number, name, depId, loc] of stations) {
