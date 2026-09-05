@@ -44,7 +44,33 @@ function tableHasColumn(table, column) {
   return all(`PRAGMA table_info(${table})`).some(c => c.name === column);
 }
 
+function ensureUsersTable() {
+  const exists = all("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'users'").length > 0;
+  if (!exists) {
+    run(`CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      name TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'personnel',
+      agency_id TEXT,
+      department_id TEXT,
+      station_id TEXT,
+      badge TEXT DEFAULT '',
+      rank TEXT DEFAULT '',
+      callsign TEXT DEFAULT '',
+      unit_id TEXT,
+      must_change_password INTEGER DEFAULT 0,
+      account_status TEXT DEFAULT 'active',
+      status TEXT DEFAULT '10-7',
+      last_login TEXT,
+      created_at TEXT NOT NULL
+    )`);
+  }
+}
+
 function ensureUserColumns() {
+  ensureUsersTable();
   const cols = [
     ['account_status', "TEXT DEFAULT 'active'"],
     ['status', "TEXT DEFAULT '10-7'"],
@@ -134,6 +160,7 @@ function notifyUnitOfficers(io, unit, payload) {
 
 function initMultiAgencySchema() {
   ensureFleetNameColumn();
+  ensureUsersTable();
   ensureUserColumns();
   run(`CREATE TABLE IF NOT EXISTS agencies (
     id TEXT PRIMARY KEY,
