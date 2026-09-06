@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useCAD } from './hooks/useCAD';
 import { useKeyboardShortcuts } from './hooks/useKeyboard';
 import Header from './components/Header';
@@ -59,6 +59,21 @@ export default function App() {
   />;
 }
 
+function combineDispatchUnits(state) {
+  const law = (state?.units || []).map(u => ({ ...u }));
+  const fleet = (state?.fleet || []).map(f => ({
+    ...f,
+    id: f.id,
+    callsign: f.callsign,
+    officer_name: (f.crew || []).map(c => c.name).join(', ') || '—',
+    department: f.department_code || (f.agency_type === 'fire' ? 'GVFD' : 'GCEMS'),
+    status: f.status || 'Available',
+    current_call: f.current_call || '—',
+    status_changed_at: f.updated_at || f.created_at,
+  }));
+  return [...law, ...fleet];
+}
+
 function DispatcherConsole({ state, connected, notifications, setTheme, notify, user, logout }) {
   const [view, setView] = useState('dispatch');
   const [selectedCallId, setSelectedCallId] = useState(null);
@@ -84,6 +99,7 @@ function DispatcherConsole({ state, connected, notifications, setTheme, notify, 
   });
 
   const selectedCall = state?.calls.find(c => c.id === selectedCallId) || null;
+  const allUnits = useMemo(() => combineDispatchUnits(state), [state]);
 
   const saveCall = useCallback(async (data) => {
     await api('PUT', `/calls/${data.id}`, data);
@@ -92,9 +108,11 @@ function DispatcherConsole({ state, connected, notifications, setTheme, notify, 
   const handleNewCall = async (data) => {
     try {
       const res = await api('POST', '/calls', data);
-      const created = res.calls.find(c =>
-        c.assigned_units?.length && data.unit_ids?.includes(c.assigned_units[0]?.id)
-      ) || res.calls.find(c => !['Closed', 'Cancelled'].includes(c.status));
+      const calls = Array.isArray(res?.calls) ? res.calls : [];
+      const created = calls.find(c =>
+        (Array.isArray(c.assigned_units) && c.assigned_units.some(u => data.unit_ids?.includes(u.id)))
+        || (Array.isArray(c.assigned_fleet) && c.assigned_fleet.some(f => data.fleet_ids?.includes(f.id)))
+      ) || calls.find(c => !['Closed', 'Cancelled'].includes(c.status)) || null;
       if (created) setSelectedCallId(created.id);
       setNewCallOpen(false);
       notify({ type: 'info', message: `Call created — ${created?.incident_number || 'incident'}` });
@@ -166,9 +184,14 @@ function DispatcherConsole({ state, connected, notifications, setTheme, notify, 
 
           {view === 'units' && (
             <UnitsPanel
-              units={state.units}
+              units={allUnits}
               onEdit={(u) => setUnitModal({ unit: u })}
-              onStatusChange={(id, status) => api('PATCH', `/units/${id}/status`, { status })}
+              onStatusChange={(id, status) => {
+                const unit = allUnits.find(u => u.id === id);
+                return unit?.agency_type
+                  ? api('PUT', `/fleet/${id}`, { status })
+                  : api('PATCH', `/units/${id}/status`, { status });
+              }}
               onTrafficStop={(u) => setTrafficModal(u)}
             />
           )}
@@ -198,8 +221,14 @@ function DispatcherConsole({ state, connected, notifications, setTheme, notify, 
           <RightSidebar
             view={view}
             state={state}
+            units={allUnits}
             onEditUnit={(u) => setUnitModal({ unit: u })}
-            onStatusChange={(id, status) => api('PATCH', `/units/${id}/status`, { status })}
+            onStatusChange={(id, status) => {
+              const unit = allUnits.find(u => u.id === id);
+              return unit?.agency_type
+                ? api('PUT', `/fleet/${id}`, { status })
+                : api('PATCH', `/units/${id}/status`, { status });
+            }}
             onTrafficStop={(u) => setTrafficModal(u)}
             onSelectCall={(id) => { setSelectedCallId(id); setView('dispatch'); }}
             onSelectStop={(s) => { setTrafficStopDetail(s); setView('traffic'); }}

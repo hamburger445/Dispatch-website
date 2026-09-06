@@ -84,7 +84,7 @@ export default function UnitsPanel({ units, onEdit, onStatusChange, onTrafficSto
           </thead>
           <tbody>
             {list.map(u => (
-              <tr key={u.id} onDoubleClick={() => onEdit(u)}>
+              <tr key={u.id} onDoubleClick={() => !u.agency_type && onEdit(u)}>
                 <td className="mono fw">{u.callsign}</td>
                 <td>{u.officer_name}</td>
                 <td><span className="dept-tag" style={{ background: DEPARTMENTS[u.department]?.color }}>{u.department}</span></td>
@@ -102,9 +102,10 @@ export default function UnitsPanel({ units, onEdit, onStatusChange, onTrafficSto
                 </td>
                 <td className="mono">{u.current_call || '—'}</td>
                 <td className="muted">{timeSince(u.status_changed_at)}</td>
-                {!compact && (
+                {!compact && !u.agency_type && (
                   <td><button className="btn-xs" onClick={() => onEdit(u)}>Edit</button></td>
                 )}
+                {!compact && u.agency_type && <td className="muted">Fleet</td>}
               </tr>
             ))}
             {!list.length && <tr><td colSpan={7} className="empty">No units — add a unit to begin</td></tr>}

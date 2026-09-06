@@ -90,6 +90,7 @@ function StatusBoard({ stats }) {
 export default function RightSidebar({
   view,
   state,
+  units,
   onEditUnit,
   onStatusChange,
   onTrafficStop,
@@ -115,12 +116,12 @@ export default function RightSidebar({
       )}
       {view === 'activity' && (
         <>
-          <UnitSnapshot units={state.units} />
+          <UnitSnapshot units={units || state.units} />
           <ActiveCallsSummary calls={state.calls} onSelectCall={onSelectCall} />
         </>
       )}      {showCompactUnits && (
         <UnitsPanel
-          units={state.units}
+          units={units || state.units}
           compact
           onEdit={onEditUnit}
           onStatusChange={onStatusChange}
