@@ -99,22 +99,14 @@ function ensureLawUnitForUser(user) {
   if (agency && agency.type && agency.type !== 'law') return null;
 
   let unit = user.unit_id ? get('SELECT * FROM units WHERE id = ?', [user.unit_id]) : null;
-  if (!unit && user.callsign) {
-    unit = get('SELECT * FROM units WHERE callsign = ?', [user.callsign]);
-  }
+  if (!unit && user.callsign) unit = get('SELECT * FROM units WHERE callsign = ?', [user.callsign]);
 
   const dept = user.department_id
     ? (get('SELECT code FROM departments WHERE id = ?', [user.department_id])?.code || 'WSP')
     : 'WSP';
   const now = new Date().toISOString();
 
-  if (!unit) {
-    const id = uid();
-    run(`INSERT INTO units (id, callsign, officer_name, department, vehicle, status, notes, status_changed_at, updated_at, created_at)
-      VALUES (?, ?, ?, ?, '', ?, '', ?, ?, ?)`,
-      [id, user.callsign, user.name, dept, user.status || '10-7', now, now, now]);
-    unit = get('SELECT * FROM units WHERE id = ?', [id]);
-  } else {
+  if (unit) {
     const changed = [];
     if ((unit.officer_name || '') !== (user.name || '')) changed.push('officer_name');
     if ((unit.department || '') !== dept) changed.push('department');
@@ -229,7 +221,19 @@ function initMultiAgencySchema() {
     created_at TEXT NOT NULL
   )`);
 
+  clearInitialUnits();
   seedDefaults();
+}
+
+function clearInitialUnits() {
+  if (get("SELECT value FROM settings WHERE key = 'empty_units_migration_v1'")) return;
+
+  run('DELETE FROM call_units');
+  run('DELETE FROM traffic_stops');
+  run('DELETE FROM units');
+  run('DELETE FROM fleet');
+  run('UPDATE users SET unit_id = NULL');
+  run("INSERT INTO settings (key, value) VALUES ('empty_units_migration_v1', '1')");
 }
 
 function seedDefaults() {
@@ -280,41 +284,6 @@ function seedDefaults() {
     }
   }
 
-  const apparatus = [
-    ['E-1', '1', 'Engine 1', 'Engine', 'st-gvfd-1'],
-    ['L-1', '1', 'Ladder 1', 'Ladder', 'st-gvfd-1'],
-    ['R-1', '1', 'Rescue 1', 'Rescue', 'st-gvfd-1'],
-    ['E-2', '2', 'Engine 2', 'Engine', 'st-gvfd-2'],
-    ['BC-1', '1', 'Battalion 1', 'Battalion', 'st-gvfd-1'],
-  ];
-  for (const [callsign, unitNumber, name, type, stationId] of apparatus) {
-    if (!get('SELECT id FROM fleet WHERE callsign = ? AND department_id = ?', [callsign, 'dep-gvfd'])) {
-      run(`INSERT INTO fleet (id, unit_number, callsign, name, type, agency_type, department_id, station_id, status, crew, created_at)
-        VALUES (?, ?, ?, ?, ?, 'fire', 'dep-gvfd', ?, 'In Quarters', '[]', ?)`,
-        [uid(), unitNumber, callsign, name, type, stationId, now]);
-    } else {
-      run('UPDATE fleet SET name = ? WHERE callsign = ? AND department_id = ? AND (name IS NULL OR name = "")', [name, callsign, 'dep-gvfd']);
-    }
-  }
-
-  const emsUnits = [
-    ['A-1', '1', 'Ambulance 1', 'Ambulance', 'st-gcem-1'],
-    ['A-4', '4', 'Ambulance 4', 'Ambulance', 'st-gcem-1'],
-    ['M-2', '2', 'Medic 2', 'Medic', 'st-gcem-1'],
-  ];
-  for (const [callsign, unitNumber, name, type, stationId] of emsUnits) {
-    if (!get('SELECT id FROM fleet WHERE callsign = ? AND department_id = ?', [callsign, 'dep-gcem'])) {
-      run(`INSERT INTO fleet (id, unit_number, callsign, name, type, agency_type, department_id, station_id, status, crew, created_at)
-        VALUES (?, ?, ?, ?, ?, 'ems', 'dep-gcem', ?, 'Available', '[]', ?)`,
-        [uid(), unitNumber, callsign, name, type, stationId, now]);
-    } else {
-      run('UPDATE fleet SET name = ? WHERE callsign = ? AND department_id = ? AND (name IS NULL OR name = "")', [name, callsign, 'dep-gcem']);
-    }
-  }
-
-  // Repair legacy seed rows where callsign was mistakenly the display name
-  run("UPDATE fleet SET name = callsign, callsign = unit_number WHERE name = '' OR name IS NULL");
-
   const mkUser = (username, password, name, role, opts = {}) => {
     if (get('SELECT id FROM users WHERE username = ?', [username])) return;
     const hash = bcrypt.hashSync(password, 10);
@@ -335,17 +304,13 @@ function seedDefaults() {
     agency_id: 'ag-outagamie-sheriff', department_id: 'dep-ocso',
     badge: '204', rank: 'Deputy', callsign: 'PD-204',
   });
-  for (const username of ['jdoe', 'msmith']) {
-    const u = get('SELECT * FROM users WHERE username = ?', [username]);
-    if (u) ensureLawUnitForUser(u);
-  }
   mkUser('fire101', 'fire123', 'Dan Baker', 'personnel', {
     agency_id: 'ag-greenville-fire', department_id: 'dep-gvfd', station_id: 'st-gvfd-1',
-    rank: 'Captain', callsign: 'E-1', unit_id: get("SELECT id FROM fleet WHERE callsign = 'E-1' AND department_id = 'dep-gvfd'")?.id || null,
+    rank: 'Captain', callsign: 'E-1',
   });
   mkUser('med203', 'ems123', 'Sarah Reyes', 'personnel', {
     agency_id: 'ag-gold-cross-ems', department_id: 'dep-gcem', station_id: 'st-gcem-1',
-    rank: 'Paramedic', callsign: 'A-4', unit_id: get("SELECT id FROM fleet WHERE callsign = 'A-4' AND department_id = 'dep-gcem'")?.id || null,
+    rank: 'Paramedic', callsign: 'A-4',
   });
 
   // Self-healing link: users to fleet units (re-links when unit_id is missing or stale)
